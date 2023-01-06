@@ -188,10 +188,10 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
                 //record frame area data
                 double dpr = this->devicePixelRatioF();
 
-                m_frames.setLeft(std::abs(frame.left) / dpr + 0.5);
-                m_frames.setTop(std::abs(frame.bottom) / dpr + 0.5);
-                m_frames.setRight(std::abs(frame.right) / dpr + 0.5);
-                m_frames.setBottom(std::abs(frame.bottom) / dpr + 0.5);
+                m_frames.setLeft(std::lround(std::abs(frame.left) / dpr));
+                m_frames.setTop(std::lround(std::abs(frame.bottom) / dpr));
+                m_frames.setRight(std::lround(std::abs(frame.right) / dpr));
+                m_frames.setBottom(std::lround(std::abs(frame.bottom) / dpr));
 
                 QWidget::setContentsMargins(m_frames.left() + m_margins.left(), \
                                             m_frames.top() + m_margins.top(), \
@@ -236,17 +236,16 @@ QMargins QtFramelessWindow::contentsMargins() const {
 
 void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int *bottom) const {
     auto margins = QWidget::contentsMargins();
-    if (left && top && right && bottom) {
-        *left = margins.left();
-        *top = margins.top();
-        *right = margins.right();
-        *bottom = margins.bottom();
-        if (isMaximized()) {
-            *left -= m_frames.left();
-            *top -= m_frames.top();
-            *right -= m_frames.right();
-            *bottom -= m_frames.bottom();
-        }
+    if (isMaximized()) {
+        if (left) *left = margins.left() - m_frames.left();
+        if (top) *top = margins.top() - m_frames.top();
+        if (right) *right = margins.right() - m_frames.right();
+        if (bottom) *bottom = margins.bottom() - m_frames.bottom();
+    } else {
+        if (left) *left = margins.left();
+        if (top) *top = margins.top();
+        if (right) *right = margins.right();
+        if (bottom) *bottom = margins.bottom();
     }
 }
 
