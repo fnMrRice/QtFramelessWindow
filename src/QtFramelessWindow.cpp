@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QPoint>
 #include <QSize>
+
 #ifdef Q_OS_WIN
 
 #include <windowsx.h>
@@ -217,6 +218,7 @@ void QtFramelessWindow::setContentsMargins(const QMargins &margins) {
     QWidget::setContentsMargins(margins + m_frames);
     m_margins = margins;
 }
+
 void QtFramelessWindow::setContentsMargins(int left, int top, int right, int bottom) {
     QWidget::setContentsMargins(left + m_frames.left(), \
                                     top + m_frames.top(), \
@@ -227,11 +229,13 @@ void QtFramelessWindow::setContentsMargins(int left, int top, int right, int bot
     m_margins.setRight(right);
     m_margins.setBottom(bottom);
 }
+
 QMargins QtFramelessWindow::contentsMargins() const {
     QMargins margins = QWidget::contentsMargins();
     margins -= m_frames;
     return margins;
 }
+
 void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int *bottom) const {
     QWidget::getContentsMargins(left, top, right, bottom);
     if (!(left && top && right && bottom)) return;
@@ -242,6 +246,7 @@ void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int 
         *bottom -= m_frames.bottom();
     }
 }
+
 QRect QtFramelessWindow::contentsRect() const {
     QRect rect = QWidget::contentsRect();
     int width = rect.width();
@@ -252,6 +257,7 @@ QRect QtFramelessWindow::contentsRect() const {
     rect.setHeight(height);
     return rect;
 }
+
 void QtFramelessWindow::showFullScreen() {
     if (isMaximized()) {
         QWidget::setContentsMargins(m_margins);
