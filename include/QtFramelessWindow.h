@@ -1,52 +1,67 @@
 ﻿#ifndef QTFRAMELESSWINDOW_H
 #define QTFRAMELESSWINDOW_H
 
-#include "qsystemdetection.h"
-#include <QMainWindow>
-
-// A nice frameless window for both Windows and OS X
-// Author: fnMrRice
-// Github: https://github.com/fnMrRice/QtFramelessWindow
-// Usage: use "QtFramelessWindow" as base class instead of "QWidget", and enjoy
+#include <QWidget>
 
 #ifdef Q_OS_WIN
-#include <QWidget>
 #include <QList>
 #include <QMargins>
 #include <QRect>
 
+/**
+ * @brief A nice frameless window for Windows
+ * @author fnMrRice
+ * @date 2023-01-06
+ * @details use "QtFramelessWindow" as base class instead of "QWidget", and enjoy
+ */
 class QtFramelessWindow : public QWidget {
  Q_OBJECT
+
+ public:
+    Q_PROPERTY(bool resizeable READ resizeable WRITE setResizeable)
+    Q_PROPERTY(bool resizeableAreaWidth READ resizeableAreaWidth WRITE setResizeableAreaWidth)
+
  public:
     explicit QtFramelessWindow(QWidget *parent = nullptr);
+    ~QtFramelessWindow() override;
 
  public:
-    //设置是否可以通过鼠标调整窗口大小
-    //if resizeable is set to false, then the window can not be resized by mouse
-    //but still can be resized programmatically
-    void setResizeable(bool resizeable = true);
-    bool isResizeable() const { return m_bResizeable; }
+    /**
+     * @brief set weather the window is resizeable
+     * @param resizeable
+     * @details If resizeable is set to false, then the window can not be resized by mouse,
+     *          but still can be resized programmatically
+     */
+    void setResizeable(bool resizeable);
+    bool resizeable() const;
 
-    //设置可调整大小区域的宽度，在此区域内，可以使用鼠标调整窗口大小
-    //set border width, inside this area, window can be resized by mouse
-    void setResizeableAreaWidth(int width = 5);
+    /**
+     * @brief set the width of the resizeable area
+     * @param width
+     * @details set the width of the resizeable area, inside this area, window can be resized by mouse
+     */
+    void setResizeableAreaWidth(int width);
+    int resizeableAreaWidth() const;
 
  protected:
-    //设置一个标题栏widget，此widget会被当做标题栏对待
-    //set a widget which will be treated as SYSTEM title bar
+    /**
+     * @brief set a widget which will be treated as SYSTEM title bar
+     * @param titleBar
+     */
     void setTitleBar(QWidget *titleBar);
 
-    //在标题栏控件内，也可以有子控件如标签控件“label1”，此label1遮盖了标题栏，导致不能通过label1拖动窗口
-    //要解决此问题，使用addIgnoreWidget(label1)
-    //generally, we can add widget say "label1" on title bar, and it will cover the title bar under it
-    //as a result, we can not drag and move the MainWindow with this "label1" again
-    //we can fix this by add "label1" to an ignore list, just call addIgnoreWidget(label1)
-    void addIgnoreWidget(QWidget *widget);
+    /**
+     * @brief add a widget in title bar to blacklist
+     * @param widget
+     * @details In mose cases, we use a custom title bar, it may has some labels or buttons.
+     *          In these cases, title bar will be covered by these widgets.
+     *          So we need to check the widget under cursor. If it is in the blacklist, then
+     *          we should not treat it as title bar. QAbstractButton and inherited classes are
+     *          ignored by default.
+     */
+    void addBlacklistWidget(QWidget *widget);
 
     bool nativeEvent(const QByteArray &eventType, void *message, long *result) override;
-
- private Q_SLOTS:
-    void onTitleBarDestroyed();
 
  public:
     void setContentsMargins(const QMargins &margins);
@@ -59,15 +74,9 @@ class QtFramelessWindow : public QWidget {
     void showFullScreen();
 
  private:
-    QWidget *m_titleBar;
-    QList<QWidget *> m_whiteList;
-    int m_borderWidth;
-
-    QMargins m_margins;
-    QMargins m_frames;
-    bool m_bJustMaximized;
-
-    bool m_bResizeable;
+    class QtFramelessWindowPrivate;
+    Q_DECLARE_PRIVATE(QtFramelessWindow);
+    QtFramelessWindowPrivate *d_ptr;
 };
 
 #endif

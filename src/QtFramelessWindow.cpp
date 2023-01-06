@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QPoint>
 #include <QSize>
+#include <QAbstractButton>
 
 #ifdef Q_OS_WIN
 
@@ -10,23 +11,58 @@
 #include <objidl.h> // Fixes error C2504: 'IUnknown' : base class undefined
 #include <gdiplus.h>
 
+class QtFramelessWindow::QtFramelessWindowPrivate : public QObject {
+ public:
+    explicit QtFramelessWindowPrivate(QtFramelessWindow *q) : QObject(q), q_ptr(q),
+                                                              m_titleBar(Q_NULLPTR),
+                                                              m_borderWidth(5),
+                                                              m_bJustMaximized(false),
+                                                              m_bResizeable(true) {}
+    ~QtFramelessWindowPrivate() override = default;
+
+ public:
+    Q_SLOT void onTitleBarDestroyed() {
+        if (m_titleBar == QObject::sender()) {
+            m_titleBar = Q_NULLPTR;
+        }
+    }
+
+ public:
+    QWidget *m_titleBar;
+    QList<QWidget *> blacklist;
+    int m_borderWidth;
+
+    QMargins m_margins;
+    QMargins m_frames;
+    bool m_bJustMaximized;
+
+    bool m_bResizeable;
+
+ private:
+    Q_DECLARE_PUBLIC(QtFramelessWindow);
+    QtFramelessWindow *q_ptr;
+};
+
 QtFramelessWindow::QtFramelessWindow(QWidget *parent) : QWidget(parent),
-                                                        m_titleBar(Q_NULLPTR),
-                                                        m_borderWidth(5),
-                                                        m_bJustMaximized(false),
-                                                        m_bResizeable(true) {
+                                                        d_ptr(new QtFramelessWindowPrivate(this)) {
+    Q_D(QtFramelessWindow);
     //    setWindowFlag(Qt::Window,true);
     //    setWindowFlag(Qt::FramelessWindowHint, true);
     //    setWindowFlag(Qt::WindowSystemMenuHint, true);
     //    setWindowFlag() is not available before Qt v5.9, so we should use setWindowFlags instead
     setWindowFlags(windowFlags() | Qt::Window | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);
-    setResizeable(m_bResizeable);
+    setResizeable(d->m_bResizeable);
+}
+
+QtFramelessWindow::~QtFramelessWindow() {
+    delete d_ptr;
 }
 
 void QtFramelessWindow::setResizeable(bool resizeable) {
+    Q_D(QtFramelessWindow);
     bool visible = isVisible();
-    m_bResizeable = resizeable;
-    if (m_bResizeable) {
+    d->m_bResizeable = resizeable;
+    if (d->m_bResizeable) {
         setWindowFlags(windowFlags() | Qt::WindowMaximizeButtonHint);
         //        setWindowFlag(Qt::WindowMaximizeButtonHint);
 
@@ -55,30 +91,38 @@ void QtFramelessWindow::setResizeable(bool resizeable) {
     setVisible(visible);
 }
 
+bool QtFramelessWindow::resizeable() const {
+    Q_D(const QtFramelessWindow);
+    return d->m_bResizeable;
+}
+
 void QtFramelessWindow::setResizeableAreaWidth(int width) {
+    Q_D(QtFramelessWindow);
     if (1 > width) width = 1;
-    m_borderWidth = width;
+    d->m_borderWidth = width;
+}
+
+int QtFramelessWindow::resizeableAreaWidth() const {
+    Q_D(const QtFramelessWindow);
+    return d->m_borderWidth;
 }
 
 void QtFramelessWindow::setTitleBar(QWidget *titleBar) {
-    m_titleBar = titleBar;
+    Q_D(QtFramelessWindow);
+    d->m_titleBar = titleBar;
     if (!titleBar) return;
-    connect(titleBar, &QObject::destroyed, this, &QtFramelessWindow::onTitleBarDestroyed);
+    connect(titleBar, &QObject::destroyed, d, &QtFramelessWindowPrivate::onTitleBarDestroyed);
 }
 
-void QtFramelessWindow::onTitleBarDestroyed() {
-    if (m_titleBar == QObject::sender()) {
-        m_titleBar = Q_NULLPTR;
-    }
-}
-
-void QtFramelessWindow::addIgnoreWidget(QWidget *widget) {
+void QtFramelessWindow::addBlacklistWidget(QWidget *widget) {
+    Q_D(QtFramelessWindow);
     if (!widget) return;
-    if (m_whiteList.contains(widget)) return;
-    m_whiteList.append(widget);
+    if (d->blacklist.contains(widget)) return;
+    d->blacklist.append(widget);
 }
 
 bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, long *result) {
+    Q_D(QtFramelessWindow);
     //Workaround for known bug -> check Qt forum : https://forum.qt.io/topic/93141/qtablewidget-itemselectionchanged/13
 #if (QT_VERSION == QT_VERSION_CHECK(5, 11, 1))
     MSG* msg = *reinterpret_cast<MSG**>(message);
@@ -99,14 +143,14 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
         case WM_NCHITTEST: {
             *result = 0;
 
-            const LONG border_width = m_borderWidth;
+            const LONG border_width = d->m_borderWidth;
             RECT winRect;
             GetWindowRect(HWND(winId()), &winRect);
 
             long x = GET_X_LPARAM(msg->lParam);
             long y = GET_Y_LPARAM(msg->lParam);
 
-            if (m_bResizeable) {
+            if (d->m_bResizeable) {
 
                 bool resizeWidth = minimumWidth() != maximumWidth();
                 bool resizeHeight = minimumHeight() != maximumHeight();
@@ -158,24 +202,25 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
 
             // *result still equals 0, that means the cursor locate OUTSIDE the frame area,
             // but it may locate in title bar area
-            if (!m_titleBar) return false;
+            if (!d->m_titleBar) return false;
 
-            //support high-dpi
+            // support high-dpi
             double dpr = this->devicePixelRatioF();
-            QPoint pos = m_titleBar->mapFromGlobal(QPoint(x / dpr, y / dpr));
+            QPoint pos = d->m_titleBar->mapFromGlobal(QPoint(x / dpr, y / dpr));
 
-            if (!m_titleBar->rect().contains(pos)) return false;
-            QWidget *child = m_titleBar->childAt(pos);
-            if (!child) {
-                *result = HTCAPTION;
-                return true;
-            } else {
-                if (m_whiteList.contains(child)) {
-                    *result = HTCAPTION;
-                    return true;
+            if (!d->m_titleBar->rect().contains(pos)) return false;
+            QWidget *child = d->m_titleBar->childAt(pos);
+            if (child) {
+                if (d->blacklist.contains(child)) {
+                    return false;
+                } else if (auto btn = qobject_cast<QAbstractButton *>(child)) {
+                    if (btn->isEnabled()) {
+                        return false;
+                    }
                 }
             }
-            return false;
+            *result = HTCAPTION;
+            return true;
         } //end case WM_NCHITTEST
         case WM_GETMINMAXINFO: {
             if (::IsZoomed(msg->hwnd)) {
@@ -185,21 +230,21 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
                 //record frame area data
                 double dpr = this->devicePixelRatioF();
 
-                m_frames.setLeft(std::lround(std::abs(frame.left) / dpr));
-                m_frames.setTop(std::lround(std::abs(frame.bottom) / dpr));
-                m_frames.setRight(std::lround(std::abs(frame.right) / dpr));
-                m_frames.setBottom(std::lround(std::abs(frame.bottom) / dpr));
+                d->m_frames.setLeft(std::lround(std::abs(frame.left) / dpr));
+                d->m_frames.setTop(std::lround(std::abs(frame.bottom) / dpr));
+                d->m_frames.setRight(std::lround(std::abs(frame.right) / dpr));
+                d->m_frames.setBottom(std::lround(std::abs(frame.bottom) / dpr));
 
-                QWidget::setContentsMargins(m_frames.left() + m_margins.left(), \
-                                            m_frames.top() + m_margins.top(), \
-                                            m_frames.right() + m_margins.right(), \
-                                            m_frames.bottom() + m_margins.bottom());
-                m_bJustMaximized = true;
+                QWidget::setContentsMargins(d->m_frames.left() + d->m_margins.left(), \
+                                            d->m_frames.top() + d->m_margins.top(), \
+                                            d->m_frames.right() + d->m_margins.right(), \
+                                            d->m_frames.bottom() + d->m_margins.bottom());
+                d->m_bJustMaximized = true;
             } else {
-                if (m_bJustMaximized) {
-                    QWidget::setContentsMargins(m_margins);
-                    m_frames = QMargins();
-                    m_bJustMaximized = false;
+                if (d->m_bJustMaximized) {
+                    QWidget::setContentsMargins(d->m_margins);
+                    d->m_frames = QMargins();
+                    d->m_bJustMaximized = false;
                 }
             }
             return false;
@@ -210,34 +255,38 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
 }
 
 void QtFramelessWindow::setContentsMargins(const QMargins &margins) {
-    QWidget::setContentsMargins(margins + m_frames);
-    m_margins = margins;
+    Q_D(QtFramelessWindow);
+    QWidget::setContentsMargins(margins + d->m_frames);
+    d->m_margins = margins;
 }
 
 void QtFramelessWindow::setContentsMargins(int left, int top, int right, int bottom) {
-    QWidget::setContentsMargins(left + m_frames.left(), \
-                                    top + m_frames.top(), \
-                                    right + m_frames.right(), \
-                                    bottom + m_frames.bottom());
-    m_margins.setLeft(left);
-    m_margins.setTop(top);
-    m_margins.setRight(right);
-    m_margins.setBottom(bottom);
+    Q_D(QtFramelessWindow);
+    QWidget::setContentsMargins(left + d->m_frames.left(), \
+                                    top + d->m_frames.top(), \
+                                    right + d->m_frames.right(), \
+                                    bottom + d->m_frames.bottom());
+    d->m_margins.setLeft(left);
+    d->m_margins.setTop(top);
+    d->m_margins.setRight(right);
+    d->m_margins.setBottom(bottom);
 }
 
 QMargins QtFramelessWindow::contentsMargins() const {
+    Q_D(const QtFramelessWindow);
     QMargins margins = QWidget::contentsMargins();
-    margins -= m_frames;
+    margins -= d->m_frames;
     return margins;
 }
 
 void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int *bottom) const {
+    Q_D(const QtFramelessWindow);
     auto margins = QWidget::contentsMargins();
     if (isMaximized()) {
-        if (left) *left = margins.left() - m_frames.left();
-        if (top) *top = margins.top() - m_frames.top();
-        if (right) *right = margins.right() - m_frames.right();
-        if (bottom) *bottom = margins.bottom() - m_frames.bottom();
+        if (left) *left = margins.left() - d->m_frames.left();
+        if (top) *top = margins.top() - d->m_frames.top();
+        if (right) *right = margins.right() - d->m_frames.right();
+        if (bottom) *bottom = margins.bottom() - d->m_frames.bottom();
     } else {
         if (left) *left = margins.left();
         if (top) *top = margins.top();
@@ -247,20 +296,22 @@ void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int 
 }
 
 QRect QtFramelessWindow::contentsRect() const {
+    Q_D(const QtFramelessWindow);
     QRect rect = QWidget::contentsRect();
     int width = rect.width();
     int height = rect.height();
-    rect.setLeft(rect.left() - m_frames.left());
-    rect.setTop(rect.top() - m_frames.top());
+    rect.setLeft(rect.left() - d->m_frames.left());
+    rect.setTop(rect.top() - d->m_frames.top());
     rect.setWidth(width);
     rect.setHeight(height);
     return rect;
 }
 
 void QtFramelessWindow::showFullScreen() {
+    Q_D(QtFramelessWindow);
     if (isMaximized()) {
-        QWidget::setContentsMargins(m_margins);
-        m_frames = QMargins();
+        QWidget::setContentsMargins(d->m_margins);
+        d->m_frames = QMargins();
     }
     QWidget::showFullScreen();
 }
