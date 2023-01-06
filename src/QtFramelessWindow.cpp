@@ -14,7 +14,7 @@
 #pragma comment (lib, "user32.lib")
 
 QtFramelessWindow::QtFramelessWindow(QWidget *parent) : QWidget(parent),
-                                                        m_titlebar(Q_NULLPTR),
+                                                        m_titleBar(Q_NULLPTR),
                                                         m_borderWidth(5),
                                                         m_bJustMaximized(false),
                                                         m_bResizeable(true) {
@@ -22,9 +22,7 @@ QtFramelessWindow::QtFramelessWindow(QWidget *parent) : QWidget(parent),
     //    setWindowFlag(Qt::FramelessWindowHint, true);
     //    setWindowFlag(Qt::WindowSystemMenuHint, true);
     //    setWindowFlag() is not avaliable before Qt v5.9, so we should use setWindowFlags instead
-
     setWindowFlags(windowFlags() | Qt::Window | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);
-
     setResizeable(m_bResizeable);
 }
 
@@ -65,15 +63,15 @@ void QtFramelessWindow::setResizeableAreaWidth(int width) {
     m_borderWidth = width;
 }
 
-void QtFramelessWindow::setTitleBar(QWidget *titlebar) {
-    m_titlebar = titlebar;
-    if (!titlebar) return;
-    connect(titlebar, SIGNAL(destroyed(QObject * )), this, SLOT(onTitleBarDestroyed()));
+void QtFramelessWindow::setTitleBar(QWidget *titleBar) {
+    m_titleBar = titleBar;
+    if (!titleBar) return;
+    connect(titleBar, &QObject::destroyed, this, &QtFramelessWindow::onTitleBarDestroyed);
 }
 
 void QtFramelessWindow::onTitleBarDestroyed() {
-    if (m_titlebar == QObject::sender()) {
-        m_titlebar = Q_NULLPTR;
+    if (m_titleBar == QObject::sender()) {
+        m_titleBar = Q_NULLPTR;
     }
 }
 
@@ -163,14 +161,14 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
 
             //*result still equals 0, that means the cursor locate OUTSIDE the frame area
             //but it may locate in titlebar area
-            if (!m_titlebar) return false;
+            if (!m_titleBar) return false;
 
             //support highdpi
             double dpr = this->devicePixelRatioF();
-            QPoint pos = m_titlebar->mapFromGlobal(QPoint(x / dpr, y / dpr));
+            QPoint pos = m_titleBar->mapFromGlobal(QPoint(x / dpr, y / dpr));
 
-            if (!m_titlebar->rect().contains(pos)) return false;
-            QWidget *child = m_titlebar->childAt(pos);
+            if (!m_titleBar->rect().contains(pos)) return false;
+            QWidget *child = m_titleBar->childAt(pos);
             if (!child) {
                 *result = HTCAPTION;
                 return true;
@@ -190,10 +188,10 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
                 //record frame area data
                 double dpr = this->devicePixelRatioF();
 
-                m_frames.setLeft(abs(frame.left) / dpr + 0.5);
-                m_frames.setTop(abs(frame.bottom) / dpr + 0.5);
-                m_frames.setRight(abs(frame.right) / dpr + 0.5);
-                m_frames.setBottom(abs(frame.bottom) / dpr + 0.5);
+                m_frames.setLeft(std::abs(frame.left) / dpr + 0.5);
+                m_frames.setTop(std::abs(frame.bottom) / dpr + 0.5);
+                m_frames.setRight(std::abs(frame.right) / dpr + 0.5);
+                m_frames.setBottom(std::abs(frame.bottom) / dpr + 0.5);
 
                 QWidget::setContentsMargins(m_frames.left() + m_margins.left(), \
                                             m_frames.top() + m_margins.top(), \
@@ -237,13 +235,18 @@ QMargins QtFramelessWindow::contentsMargins() const {
 }
 
 void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int *bottom) const {
-    QWidget::getContentsMargins(left, top, right, bottom);
-    if (!(left && top && right && bottom)) return;
-    if (isMaximized()) {
-        *left -= m_frames.left();
-        *top -= m_frames.top();
-        *right -= m_frames.right();
-        *bottom -= m_frames.bottom();
+    auto margins = QWidget::contentsMargins();
+    if (left && top && right && bottom) {
+        *left = margins.left();
+        *top = margins.top();
+        *right = margins.right();
+        *bottom = margins.bottom();
+        if (isMaximized()) {
+            *left -= m_frames.left();
+            *top -= m_frames.top();
+            *right -= m_frames.right();
+            *bottom -= m_frames.bottom();
+        }
     }
 }
 
