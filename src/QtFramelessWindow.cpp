@@ -12,12 +12,11 @@
 #pragma comment (lib, "Dwmapi.lib") // Adds missing library, fixes error LNK2019: unresolved external symbol __imp__DwmExtendFrameIntoClientArea
 #pragma comment (lib, "user32.lib")
 
-QtFramelessWindow::QtFramelessWindow(QWidget *parent)
-    : QMainWindow(parent),
-      m_titlebar(Q_NULLPTR),
-      m_borderWidth(5),
-      m_bJustMaximized(false),
-      m_bResizeable(true) {
+QtFramelessWindow::QtFramelessWindow(QWidget *parent) : QWidget(parent),
+                                                        m_titlebar(Q_NULLPTR),
+                                                        m_borderWidth(5),
+                                                        m_bJustMaximized(false),
+                                                        m_bResizeable(true) {
     //    setWindowFlag(Qt::Window,true);
     //    setWindowFlag(Qt::FramelessWindowHint, true);
     //    setWindowFlag(Qt::WindowSystemMenuHint, true);
@@ -195,14 +194,14 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
                 m_frames.setRight(abs(frame.right) / dpr + 0.5);
                 m_frames.setBottom(abs(frame.bottom) / dpr + 0.5);
 
-                QMainWindow::setContentsMargins(m_frames.left() + m_margins.left(), \
+                QWidget::setContentsMargins(m_frames.left() + m_margins.left(), \
                                             m_frames.top() + m_margins.top(), \
                                             m_frames.right() + m_margins.right(), \
                                             m_frames.bottom() + m_margins.bottom());
                 m_bJustMaximized = true;
             } else {
                 if (m_bJustMaximized) {
-                    QMainWindow::setContentsMargins(m_margins);
+                    QWidget::setContentsMargins(m_margins);
                     m_frames = QMargins();
                     m_bJustMaximized = false;
                 }
@@ -210,16 +209,16 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
             return false;
         }
         default:
-            return QMainWindow::nativeEvent(eventType, message, result);
+            return QWidget::nativeEvent(eventType, message, result);
     }
 }
 
 void QtFramelessWindow::setContentsMargins(const QMargins &margins) {
-    QMainWindow::setContentsMargins(margins + m_frames);
+    QWidget::setContentsMargins(margins + m_frames);
     m_margins = margins;
 }
 void QtFramelessWindow::setContentsMargins(int left, int top, int right, int bottom) {
-    QMainWindow::setContentsMargins(left + m_frames.left(), \
+    QWidget::setContentsMargins(left + m_frames.left(), \
                                     top + m_frames.top(), \
                                     right + m_frames.right(), \
                                     bottom + m_frames.bottom());
@@ -229,12 +228,12 @@ void QtFramelessWindow::setContentsMargins(int left, int top, int right, int bot
     m_margins.setBottom(bottom);
 }
 QMargins QtFramelessWindow::contentsMargins() const {
-    QMargins margins = QMainWindow::contentsMargins();
+    QMargins margins = QWidget::contentsMargins();
     margins -= m_frames;
     return margins;
 }
 void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int *bottom) const {
-    QMainWindow::getContentsMargins(left, top, right, bottom);
+    QWidget::getContentsMargins(left, top, right, bottom);
     if (!(left && top && right && bottom)) return;
     if (isMaximized()) {
         *left -= m_frames.left();
@@ -244,7 +243,7 @@ void QtFramelessWindow::getContentsMargins(int *left, int *top, int *right, int 
     }
 }
 QRect QtFramelessWindow::contentsRect() const {
-    QRect rect = QMainWindow::contentsRect();
+    QRect rect = QWidget::contentsRect();
     int width = rect.width();
     int height = rect.height();
     rect.setLeft(rect.left() - m_frames.left());
@@ -255,10 +254,10 @@ QRect QtFramelessWindow::contentsRect() const {
 }
 void QtFramelessWindow::showFullScreen() {
     if (isMaximized()) {
-        QMainWindow::setContentsMargins(m_margins);
+        QWidget::setContentsMargins(m_margins);
         m_frames = QMargins();
     }
-    QMainWindow::showFullScreen();
+    QWidget::showFullScreen();
 }
 
 #endif //Q_OS_WIN
