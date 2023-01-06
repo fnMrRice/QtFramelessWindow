@@ -5,3 +5,7 @@ build*/
 
 #mac
 .DS_Store
+
+#clion
+.idea
+cmake-build-*/
