@@ -10,9 +10,6 @@
 #include <objidl.h> // Fixes error C2504: 'IUnknown' : base class undefined
 #include <gdiplus.h>
 
-#pragma comment (lib, "Dwmapi.lib") // Adds missing library, fixes error LNK2019: unresolved external symbol __imp__DwmExtendFrameIntoClientArea
-#pragma comment (lib, "user32.lib")
-
 QtFramelessWindow::QtFramelessWindow(QWidget *parent) : QWidget(parent),
                                                         m_titleBar(Q_NULLPTR),
                                                         m_borderWidth(5),
@@ -21,7 +18,7 @@ QtFramelessWindow::QtFramelessWindow(QWidget *parent) : QWidget(parent),
     //    setWindowFlag(Qt::Window,true);
     //    setWindowFlag(Qt::FramelessWindowHint, true);
     //    setWindowFlag(Qt::WindowSystemMenuHint, true);
-    //    setWindowFlag() is not avaliable before Qt v5.9, so we should use setWindowFlags instead
+    //    setWindowFlag() is not available before Qt v5.9, so we should use setWindowFlags instead
     setWindowFlags(windowFlags() | Qt::Window | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);
     setResizeable(m_bResizeable);
 }
@@ -35,8 +32,8 @@ void QtFramelessWindow::setResizeable(bool resizeable) {
 
         //此行代码可以带回Aero效果，同时也带回了标题栏和边框,在nativeEvent()会再次去掉标题栏
         //
-        //this line will get titlebar/thick frame/Aero back, which is exactly what we want
-        //we will get rid of titlebar and thick frame again in nativeEvent() later
+        //this line will get title bar/thick frame/Aero back, which is exactly what we want
+        //we will get rid of title bar and thick frame again in nativeEvent() later
         HWND hwnd = (HWND) this->winId();
         DWORD style = ::GetWindowLong(hwnd, GWL_STYLE);
         ::SetWindowLong(hwnd, GWL_STYLE, style | WS_MAXIMIZEBOX | WS_THICKFRAME | WS_CAPTION);
@@ -51,7 +48,7 @@ void QtFramelessWindow::setResizeable(bool resizeable) {
 
     //保留一个像素的边框宽度，否则系统不会绘制边框阴影
     //
-    //we better left 1 piexl width of border untouch, so OS can draw nice shadow around it
+    //we better left 1 pixel width of border untouched, so OS can draw nice shadow around it
     const MARGINS shadow = {1, 1, 1, 1};
     DwmExtendFrameIntoClientArea(HWND(winId()), &shadow);
 
@@ -103,8 +100,8 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
             *result = 0;
 
             const LONG border_width = m_borderWidth;
-            RECT winrect;
-            GetWindowRect(HWND(winId()), &winrect);
+            RECT winRect;
+            GetWindowRect(HWND(winId()), &winRect);
 
             long x = GET_X_LPARAM(msg->lParam);
             long y = GET_Y_LPARAM(msg->lParam);
@@ -116,54 +113,54 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
 
                 if (resizeWidth) {
                     //left border
-                    if (x >= winrect.left && x < winrect.left + border_width) {
+                    if (x >= winRect.left && x < winRect.left + border_width) {
                         *result = HTLEFT;
                     }
                     //right border
-                    if (x < winrect.right && x >= winrect.right - border_width) {
+                    if (x < winRect.right && x >= winRect.right - border_width) {
                         *result = HTRIGHT;
                     }
                 }
                 if (resizeHeight) {
                     //bottom border
-                    if (y < winrect.bottom && y >= winrect.bottom - border_width) {
+                    if (y < winRect.bottom && y >= winRect.bottom - border_width) {
                         *result = HTBOTTOM;
                     }
                     //top border
-                    if (y >= winrect.top && y < winrect.top + border_width) {
+                    if (y >= winRect.top && y < winRect.top + border_width) {
                         *result = HTTOP;
                     }
                 }
                 if (resizeWidth && resizeHeight) {
                     //bottom left corner
-                    if (x >= winrect.left && x < winrect.left + border_width &&
-                        y < winrect.bottom && y >= winrect.bottom - border_width) {
+                    if (x >= winRect.left && x < winRect.left + border_width &&
+                        y < winRect.bottom && y >= winRect.bottom - border_width) {
                         *result = HTBOTTOMLEFT;
                     }
                     //bottom right corner
-                    if (x < winrect.right && x >= winrect.right - border_width &&
-                        y < winrect.bottom && y >= winrect.bottom - border_width) {
+                    if (x < winRect.right && x >= winRect.right - border_width &&
+                        y < winRect.bottom && y >= winRect.bottom - border_width) {
                         *result = HTBOTTOMRIGHT;
                     }
                     //top left corner
-                    if (x >= winrect.left && x < winrect.left + border_width &&
-                        y >= winrect.top && y < winrect.top + border_width) {
+                    if (x >= winRect.left && x < winRect.left + border_width &&
+                        y >= winRect.top && y < winRect.top + border_width) {
                         *result = HTTOPLEFT;
                     }
                     //top right corner
-                    if (x < winrect.right && x >= winrect.right - border_width &&
-                        y >= winrect.top && y < winrect.top + border_width) {
+                    if (x < winRect.right && x >= winRect.right - border_width &&
+                        y >= winRect.top && y < winRect.top + border_width) {
                         *result = HTTOPRIGHT;
                     }
                 }
             }
             if (0 != *result) return true;
 
-            //*result still equals 0, that means the cursor locate OUTSIDE the frame area
-            //but it may locate in titlebar area
+            // *result still equals 0, that means the cursor locate OUTSIDE the frame area,
+            // but it may locate in title bar area
             if (!m_titleBar) return false;
 
-            //support highdpi
+            //support high-dpi
             double dpr = this->devicePixelRatioF();
             QPoint pos = m_titleBar->mapFromGlobal(QPoint(x / dpr, y / dpr));
 
