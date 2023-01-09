@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
 
-# Toast组件, 需要至少一个窗口用于显示
 project(QtFramelessWindow VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)

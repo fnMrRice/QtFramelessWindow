@@ -3,11 +3,6 @@
 
 #include <QWidget>
 
-#ifdef Q_OS_WIN
-#include <QList>
-#include <QMargins>
-#include <QRect>
-
 /**
  * @brief A nice frameless window for Windows
  * @author fnMrRice
@@ -78,7 +73,5 @@ class QtFramelessWindow : public QWidget {
     Q_DECLARE_PRIVATE(QtFramelessWindow);
     QtFramelessWindowPrivate *d_ptr;
 };
-
-#endif
 
 #endif // QTFRAMELESSWINDOW_H

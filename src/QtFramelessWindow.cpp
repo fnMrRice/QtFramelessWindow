@@ -5,11 +5,11 @@
 #include <QAbstractButton>
 
 #ifdef Q_OS_WIN
-
 #include <windowsx.h>
 #include <dwmapi.h>
 #include <objidl.h> // Fixes error C2504: 'IUnknown' : base class undefined
 #include <gdiplus.h>
+#endif
 
 class QtFramelessWindow::QtFramelessWindowPrivate : public QObject {
  public:
@@ -66,20 +66,24 @@ void QtFramelessWindow::setResizeable(bool resizeable) {
         setWindowFlags(windowFlags() | Qt::WindowMaximizeButtonHint);
         //        setWindowFlag(Qt::WindowMaximizeButtonHint);
 
+#ifdef Q_OS_WIN
         //此行代码可以带回Aero效果，同时也带回了标题栏和边框,在nativeEvent()会再次去掉标题栏
         //
         //this line will get title bar/thick frame/Aero back, which is exactly what we want
         //we will get rid of title bar and thick frame again in nativeEvent() later
         HWND hwnd = (HWND) this->winId();
-        DWORD style = ::GetWindowLong(hwnd, GWL_STYLE);
+        LONG style = ::GetWindowLong(hwnd, GWL_STYLE);
         ::SetWindowLong(hwnd, GWL_STYLE, style | WS_MAXIMIZEBOX | WS_THICKFRAME | WS_CAPTION);
+#endif
     } else {
         setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint);
         //        setWindowFlag(Qt::WindowMaximizeButtonHint,false);
 
+#ifdef Q_OS_WIN
         HWND hwnd = (HWND) this->winId();
-        DWORD style = ::GetWindowLong(hwnd, GWL_STYLE);
+        LONG style = ::GetWindowLong(hwnd, GWL_STYLE);
         ::SetWindowLong(hwnd, GWL_STYLE, style & ~WS_MAXIMIZEBOX & ~WS_CAPTION);
+#endif
     }
 
     //保留一个像素的边框宽度，否则系统不会绘制边框阴影
@@ -123,6 +127,7 @@ void QtFramelessWindow::addBlacklistWidget(QWidget *widget) {
 
 bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, long *result) {
     Q_D(QtFramelessWindow);
+#ifdef Q_OS_WIN
     //Workaround for known bug -> check Qt forum : https://forum.qt.io/topic/93141/qtablewidget-itemselectionchanged/13
 #if (QT_VERSION == QT_VERSION_CHECK(5, 11, 1))
     MSG* msg = *reinterpret_cast<MSG**>(message);
@@ -206,7 +211,7 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
 
             // support high-dpi
             double dpr = this->devicePixelRatioF();
-            QPoint pos = d->m_titleBar->mapFromGlobal(QPoint(x / dpr, y / dpr));
+            QPoint pos = d->m_titleBar->mapFromGlobal(QPointF(x / dpr, y / dpr).toPoint());
 
             if (!d->m_titleBar->rect().contains(pos)) return false;
             QWidget *child = d->m_titleBar->childAt(pos);
@@ -252,6 +257,9 @@ bool QtFramelessWindow::nativeEvent(const QByteArray &eventType, void *message, 
         default:
             return QWidget::nativeEvent(eventType, message, result);
     }
+#else
+    return QWidget::nativeEvent(eventType, message, result);
+#endif
 }
 
 void QtFramelessWindow::setContentsMargins(const QMargins &margins) {
@@ -315,5 +323,3 @@ void QtFramelessWindow::showFullScreen() {
     }
     QWidget::showFullScreen();
 }
-
-#endif //Q_OS_WIN
